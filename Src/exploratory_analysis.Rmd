@@ -1,0 +1,123 @@
+```{r load_library}
+library(ggplot2)
+library(dplyr)
+library(reshape)
+```
+
+```{r custom_function}
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+	library(grid)
+	
+	# Make a list from the ... arguments and plotlist
+	plots <- c(list(...), plotlist)
+	
+	numPlots = length(plots)
+	
+	# If layout is NULL, then use 'cols' to determine layout
+	if (is.null(layout)) {
+		# Make the panel
+		# ncol: Number of columns of plots
+		# nrow: Number of rows needed, calculated from # of cols
+		layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+				 ncol = cols, nrow = ceiling(numPlots/cols))
+	}
+	
+	if (numPlots==1) {
+		print(plots[[1]]) 
+	} else {
+		# Set up the page
+		grid.newpage()
+		pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+		
+		# Make each plot, in the correct location
+		for (i in 1:numPlots) {
+			# Get the i,j matrix positions of the regions that contain this subplot
+			matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+			
+			print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+							 layout.pos.col = matchidx$col))
+		}
+	}
+}
+#######################################################################################
+printMultiPlot <- function(..., file_name = "plot.jpeg", path_dir = "./", is_save = FALSE , plotlist = NULL, cols = 1, layout = NULL) {
+	if (is_save) {
+		jpeg(paste(path_dir, file_name))
+	}
+
+	multiplot(..., plotlist = plotlist, cols = cols, layout = layout)
+
+	if (is_save) {
+		dev.off()
+	}
+}
+#######################################################################################
+printPlot <- function(p, file_name = "plot.jpeg", path_dir = "./", is_save = FALSE ){
+	if (is_save) {
+		jpeg(paste(path_dir, file_name))
+	}
+
+	print(p)
+
+	if (is_save) {
+		dev.off()
+	}
+}
+```
+
+```{r variables}
+path_dataset_original = "../creditcard.csv"
+path_plot_dir = "../Plots/ExploratoryAnalysis/"
+is_save = TRUE
+```
+
+```{r load_dataset}
+dataset = read.csv(path_dataset_original)
+dataset = dataset[, !(colnames(dataset) %in% c("Time", "Class"))]
+column_features = colnames(dataset) != c("Amount")
+
+print(head(dataset))
+```
+
+```{r create_dir}
+dir.create("../Plots", showWarnings = FALSE)
+dir.create(path_plot_dir, showWarnings=FALSE)
+```
+
+```{r plot_histograms}
+tmp = sapply(colnames(dataset), function(feature, dataset, path_plot_dir, is_save){
+		     mean_feature = mean(dataset[, feature])
+		     quantiles_feature = quantile(dataset[, feature])
+		     lower_quantile_feature = quantiles_feature[2]
+		     upper_quantile_feature = quantiles_feature[4]
+		     p <- ggplot(dataset) +
+			     geom_histogram(aes_string(x = feature, y = quote(..density..)), fill = "blue", color = "lightblue", stat = "bin", bins = 100) +
+			     geom_density(aes_string(x = feature), fill = "red", alpha = 0.3, color = "red", stat = "density") +
+			     geom_vline(aes(xintercept=mean_feature), color = "black") +
+			     geom_vline(aes(xintercept=lower_quantile_feature), color = "green", linetype = "dashed") +
+			     geom_vline(aes(xintercept=upper_quantile_feature), color = "green", linetype = "dashed") +
+			     labs(title = paste("Distribution of", feature, sep = " "), x = feature, y = "Probability")
+		     printPlot(p, paste("histogram_", feature , ".jpeg", sep = ""), path_plot_dir, is_save)
+				 }, dataset, path_plot_dir, is_save)
+rm(tmp)
+```
+
+```{r plot_histograms}
+tmp = sapply(colnames(dataset), function(feature, dataset, path_plot_dir, is_save){
+		     p <- ggplot(dataset) +
+			     geom_point(aes_string(x = feature, y = "Amount"), fill = "blue", color = "lightblue") +
+			     labs(title = paste("Scatter plot of Amount vs", feature, sep = " "), x = feature, y = "Amount")
+		     printPlot(p, paste("scatter_", feature , ".jpeg", sep = ""), path_plot_dir, is_save)
+				 }, dataset, path_plot_dir, is_save)
+rm(tmp)
+```
